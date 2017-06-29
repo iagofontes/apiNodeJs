@@ -5,6 +5,33 @@ module.exports = function(app){
         resp.send('Rota de pagamento atingida.');
     });
 
+
+    app.delete('/pagamentos/pagamento/:id', function(req, resp){
+
+        var id = req.params.id;
+
+        var conn = app.persistencia.ConnectionFactory();
+        var pagamento = {id: id, status: "CANCELADO"};
+        var flag = 0;
+
+        var pagamentoDao = new app.persistencia.PagamentoDAO(conn);
+        pagamentoDao.atualiza(pagamento, function(err, result){
+            if(err){
+                console.log(err);
+                resp.status(500).send(err);
+                return;
+            }
+            console.log("pagamento atualizado.");
+            var retorno = {status: 'Pagamento cancelado'};
+            resp.status(204).json(retorno);
+            // resp.status(204).send('Pagamento cancelado.');
+            return;
+            // flag = 1;
+        });
+
+    });
+
+
     app.put('/pagamentos/pagamento/:id', function(req, resp){
 
         var id = req.params.id;
@@ -51,9 +78,24 @@ module.exports = function(app){
                 console.log('Problemas ao realizar a inserção. '+err);
                 resp.status(500).send(err);
             }else{
-                res.location('/pagamentos/pagamento/'+
-                    result.insertId);
-                resp.status(201).json(pagamento);
+                pagamento.id = result.insertId;
+                resp.location('/pagamentos/pagamento/'+ pagamento.id);
+
+                var response = {
+                    dados_pagamento: pagamento,
+                    links: [{
+                        rel: "confirmar",
+                        method: "PUT",
+                        url:"/pagamentos/pagamento/"+pagamento.id
+                    },
+                    {
+                        rel: "cancelar",
+                        method: "DELETE",
+                        url:"/pagamentos/pagamento/"+pagamento.id
+                    }]
+                };
+
+                resp.status(201).json(response);
             }
         });
     });
