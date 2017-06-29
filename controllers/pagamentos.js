@@ -5,6 +5,27 @@ module.exports = function(app){
         resp.send('Rota de pagamento atingida.');
     });
 
+    app.put('/pagamentos/pagamento/:id', function(req, resp){
+
+        var id = req.params.id;
+
+        var conn = app.persistencia.ConnectionFactory();
+        var pagamento = {id: id, status: "FINALIZADO"};
+
+        var pagamentoDao = new app.persistencia.PagamentoDAO(conn);
+        pagamentoDao.atualiza(pagamento, function(err, result){
+            if(err){
+                console.log(err);
+                resp.status(500).send(err);
+                return;
+            }
+            resp.status(200).send('Pagamento alterado.');
+            return;
+        });
+
+    });
+
+
     app.post('/pagamentos/pagamento', function(req, resp){
 
         req.assert("status", "Status deve ser preenchido").notEmpty();
