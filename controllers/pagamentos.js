@@ -1,10 +1,34 @@
-
+var logger = require('../servicos/logger.js');
 module.exports = function(app){
     
     app.get('/pagamentos', function(req, resp){
         resp.send('Rota de pagamento atingida.');
     });
 
+    app.get('/pagamentos/pagamento/:id', function(req, resp){
+        var id = req.params.id;
+        var memcached = app.servicos.memcachedClient();
+        memcached.get('pagamento-'+id, function(erro, retorno){
+            if(erro || !retorno){
+                var conn = app.persistencia.ConnectionFactory();
+                var pagamentoDao = new app.persistencia.PagamentoDAO(conn);
+                pagamentoDao.buscarPorId(id, function(error, resultado){
+                    if(error){
+                        console.log('problemas. Error: '+error);
+                        resp.status(500).send(error);
+                        return;
+                    }
+                    console.log('Dados do pagamento: '+JSON.stringify(resultado));
+                    resp.status(200).json(resultado);
+                    return;
+                });
+            }else{
+                //conseguiu pesquisar no cache
+                resp.status(200).json(retorno);
+                return;
+            }
+        });
+    });
 
     app.delete('/pagamentos/pagamento/:id', function(req, resp){
 
@@ -71,6 +95,7 @@ module.exports = function(app){
         var pagamento = req.body;
         var conn = app.persistencia.ConnectionFactory();
         var pagamentoDao = new app.persistencia.PagamentoDAO(conn);
+        var memcached = app.servicos.memcachedClient();
 
         pagamento.data = new Date;
         pagamentoDao.salva(pagamento, function(err, result){
@@ -94,7 +119,11 @@ module.exports = function(app){
                         url:"/pagamentos/pagamento/"+pagamento.id
                     }]
                 };
-
+                memcached.set('pagamento-'+pagamento.id, pagamento, 60000, function(error){
+                    if(error){
+                        console.log('errorMemcachedSet : '+error);
+                    }
+                });
                 resp.status(201).json(response);
             }
         });
